@@ -1,0 +1,182 @@
+.\"
+.\" $FreeBSD$
+.\"
+.Dd June 08, 2016
+.Dt NTIMED-CLIENT 8
+.Os
+.Sh NAME
+.Nm ntimed-client
+.Nd set the date and time via NTP
+.Sh SYNOPSIS
+.Nm
+.Op Fl p Ar param
+.Op Fl t Ar tracefile
+.Ar server ...
+.Sh DESCRIPTION
+The
+.Nm
+utility sets the local date and time by polling the
+Network Time Protocol (NTP) server(s) given as the
+.Ar server
+arguments to determine the correct time.
+It must be run as root on
+the local host.
+A number of samples are obtained from each of the
+servers specified and a subset of the NTP clock filter and
+selection algorithms are applied to select the best of these.
+Note
+that the accuracy and reliability of
+.Nm
+depends on
+the number of servers, the number of polls each time it is run and
+the interval between runs.
+.Pp
+The following options are available:
+.Bl -tag -width indent
+.It Fl p Ar param
+This will display information about the named parameter.
+Using '?' will list all possible parameters.
+.It Fl p Ar param=value
+Sets the
+.Ar param
+parameter to
+.Ar value
+.Pp
+See below the list of possible parameters.
+.sp
+Not everything which should be a parameter is yet, and there are some
+unused dummy parameters there, just to make sure the macro-magic works.
+.It Fl t Ar tracefile
+Specify the path for the trace file as the string
+.Ar tracefile .
+to store debugging information.
+.El
+.Pp
+The
+.Nm
+utility can be run manually as necessary to set the
+host clock, or it can be run from the host startup script to set
+the clock at boot time.
+.Sh HOW IT WORKS
+After a few seconds, your clock will be stepped if necessary. (In the final
+version, this is where the process daemonizes into the background -- from
+which point you can trust your clock to be good.)
+.sp
+In the next 30-60 seconds, the PLL will eliminate any residual phase error
+and from this point in time, your computer's clock should be good to a few
+milliseconds - depending on the quality of the servers.
+.sp
+After about 5-10 minutes, the PLL will have integrated the frequency error
+of your computer's crystal, and the PLL will start to "stiffen" to minimize
+the amount of steering necessary to keep the clock aligned to the servers.
+.sp
+If you are using distant or very distant servers, it will take longer time
+before the PLL stiffens.
+.Sh PARAMETERS
+There are currently two classes of parameters available to modify
+.Nm
+behaviour:
+.Ss FILTER
+These parameters affect the client part of
+.Nm .
+.
+.Tp
+.Bl -tag -width indent
+.It Ic ntp_filter_average
+Exponential average divisor for average packet delays.
+.Pp
+The value chosen is a compromise between gliding through congestion
+of common durations and reacting to large-scale routing changes
+in a timely manner.
+.Pp
+In reality there is no way to tell the two apart.
+.Pp
+Default is 20.
+.It Ic ntp_filter_threshold
+Packet delays exceeding the average by this factor are untrustworthy.
+.Pp
+Setting this too high increases noise from (mild) congestion.
+Setting it too low throws away adequate timestamps.
+.Pp
+Default is 3.00.
+.El
+.Pp
+.Ss PLL
+These parameters are for the kernel PLL side.
+.Bl -tag -width indent
+.It Ic pll_std_p_init (float)
+Proportional term when PLL starts.
+.sp
+Reducing this will make the PLL more resistant to measurement
+noise and jitter, but also makes it converge slower.
+Increasing this will almost certainly cause oscillation.
+.sp
+Default is 0.33.
+.It Ic pll_std_i_init (integer)
+Initial P/I ratio when PLL starts.
+.sp
+Reducing this speed up convergence, but risk overshoot.
+Increasing this will slow convergence and reduce impact of
+noise.
+.sp
+Default is 60.
+.It Ic pll_std_capture_time (integer)
+Capture time before stiffening PLL.
+.sp
+After this many seconds, the PLL will start to stiffen the
+\fBP\fP
+and
+\fBI\fP
+terms to gain noise immunity.
+Decreasing risks that initial frequency capture is not
+finished, which will increase the offset-excursion.
+.
+Increasing just delays this stiffening.
+.sp
+Default is 300.
+.It Ic pll_std_stiffen_rate (float)
+Rate of PLL P/I term stiffening.
+.sp
+The exponential stiffening per second of
+\fBD\fP
+and
+\fBI\fP
+terms.
+.sp
+Decreasing makes stiffening faster.  Increasing makes stiffening slower.
+.sp
+Default is 0.999.
+.It Ic pll_std_p_limit (float)
+Lower limit for Proportional term.
+.sp
+Reducing this will make the PLL more resistent to noise,
+but going too far it will not be able to steer the clock fast enough.
+.sp
+Increasing this makes the PLL more agile and prone to noise.
+.sp
+Default is 3e-2.
+.El
+.Pp
+.Sh HISTORY
+This work is sponsored by Linux Foundation, partly in response to the
+HeartBleed fiasco, and after studying the 300,000+ lines of source-code in
+NTPD. I concluded that while it could be salvaged, it would be more
+economical, much faster and far more efficient to start from scratch.
+.Sh NOTES
+You can take this code, compile it, run it, and it will steer your
+computer's clock, but I am not going to encourage you to do that in
+production yet -- unless you know what you are doing and why you are doing
+it: This is only a preview release.
+.sp
+Because this is a preview release, the process will not "daemonize" into
+the background.
+.sp
+The '-t /tmp/somefile' arguments tells it to write a full blow-by-blow
+tracefile, for analysis and debugging.
+.sp
+If something goes wrong, I'm going to ask you for a copy the tracefile.
+.Sh AUTHORS
+Poul-Henning Kamp is the author of
+.Nm .
+.sp
+This manpage was written by Ollivier Robert <roberto@freebsd.org>
